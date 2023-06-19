@@ -55,19 +55,23 @@ deps:
 	echo test
 	#$(GOGET) -d -v ./...
 
-rpm:
-	mkdir -p $(DIR_DIST_RPM)/files
-	BUILD_VERSION=$(BUILD_VERSION) WORK_DIR=$(shell realpath $(DIR_DIST_RPM)) envsubst < rpm.tpl.spec > $(DIR_DIST_RPM)/indece-monitor-agent-linux.spec
-	cp $(BINARY_NAME) $(DIR_DIST_RPM)/files/
-	(cd $(DIR_DIST_RPM) && rpmbuild --target "x86_64" -bb ./indece-monitor-agent-linux.spec)
-	rpm -qpivl --changelog --nomanifest ~/rpmbuild/RPMS/x86_64/indece-monitor-agent-linux-$(BUILD_VERSION)-1.x86_64.rpm
-
 changelog:
 	mkdir -p $(DIR_DIST)/changelog
 	cp ./deploy/changelog $(DIR_DIST)/changelog/
 	cp ./deploy/changelog.Debian $(DIR_DIST)/changelog/
 	gzip -n -f -9 $(DIR_DIST)/changelog/changelog
 	gzip -n -f -9 $(DIR_DIST)/changelog/changelog.Debian
+
+package_rpm:
+	mkdir -p $(DIR_DIST_RPM)/files
+	BUILD_VERSION=$(BUILD_VERSION) WORK_DIR=$(shell realpath $(DIR_DIST_RPM)) envsubst < deploy/rpm/rpm.tpl.spec > $(DIR_DIST_RPM)/indece-monitor-agent-linux.spec
+	objcopy --strip-unneeded $(BINARY_NAME)_amd64 $(DIR_DIST_RPM)/files/indece-monitor-agent-linux
+	cp ./deploy/rpm/indece-monitor-agent-linux.service $(DIR_DIST_RPM)/files/
+	cp ./deploy/rpm/agent-linux.conf $(DIR_DIST_RPM)/files/
+	(cd $(DIR_DIST_RPM) && rpmbuild --target "x86_64" -bb ./indece-monitor-agent-linux.spec)
+	rpm -qpivl --changelog --nomanifest ~/rpmbuild/RPMS/x86_64/indece-monitor-agent-linux-$(BUILD_VERSION)-1.x86_64.rpm
+	rpm --addsign ~/rpmbuild/RPMS/x86_64/indece-monitor-agent-linux-$(BUILD_VERSION)-1.x86_64.rpm
+	rpmlint ~/rpmbuild/RPMS/x86_64/indece-monitor-agent-linux-$(BUILD_VERSION)-1.x86_64.rpm
 
 package_debian:
 	mkdir -p $(DIR_DIST_DEBIAN)/indece-monitor-agent-linux_$(BUILD_VERSION)-1_amd64

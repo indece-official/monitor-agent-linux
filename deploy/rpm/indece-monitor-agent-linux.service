@@ -1,0 +1,15 @@
+[Unit]
+Description=indece-monitor agent linux
+After=network.target
+
+[Service]
+RestartSec=10s
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/tmp
+ExecStart=/usr/bin/indece-monitor-agent-linux -config /etc/indece-monitor/agent-linux.conf
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
