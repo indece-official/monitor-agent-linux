@@ -1,4 +1,4 @@
-Summary: indece-monitor checker for linux hosts 
+Summary: indece-monitor agent for linux hosts 
 Name: indece-monitor-checker-linux
 Version: ${BUILD_VERSION}
 Release: 1
@@ -10,14 +10,14 @@ Requires: bash
 BuildRoot: ${WORK_DIR}
 
 %description
-indece-monitor checker for linux hosts
+indece-monitor agent for linux hosts
 
 %install
 mkdir -p %{buildroot}/usr/bin/
-cp ${WORK_DIR}/files/indece-monitor-checker-linux %{buildroot}/usr/bin/indece-monitor-checker-linux
+cp ${WORK_DIR}/files/indece-monitor-agent-linux %{buildroot}/usr/bin/indece-monitor-agent-linux
 
 %files
-/usr/bin/indece-monitor-checker-linux
+/usr/bin/indece-monitor-agent-linux
 
 %changelog
 * Tue Jun 13 2023 indece <info@indece.com>

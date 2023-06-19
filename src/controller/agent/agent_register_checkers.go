@@ -91,6 +91,22 @@ func (c *Controller) registerCheckers(ctx context.Context) error {
 					Name: "load_15",
 					Type: apiagent.CheckerV1ValueType_CheckerV1ValueTypeNumber,
 				},
+				{
+					Name: "load_1_percent",
+					Type: apiagent.CheckerV1ValueType_CheckerV1ValueTypeNumber,
+				},
+				{
+					Name:    "load_5_percent",
+					Type:    apiagent.CheckerV1ValueType_CheckerV1ValueTypeNumber,
+					MaxWarn: "80",
+					MaxCrit: "90",
+				},
+				{
+					Name:    "load_15_percent",
+					Type:    apiagent.CheckerV1ValueType_CheckerV1ValueTypeNumber,
+					MaxWarn: "80",
+					MaxCrit: "90",
+				},
 			},
 		},
 	}
@@ -122,6 +138,12 @@ func (c *Controller) registerCheckers(ctx context.Context) error {
 					Name: "used",
 					Type: apiagent.CheckerV1ValueType_CheckerV1ValueTypeNumber,
 				},
+				{
+					Name:    "used_percent",
+					Type:    apiagent.CheckerV1ValueType_CheckerV1ValueTypeNumber,
+					MaxWarn: "80",
+					MaxCrit: "90",
+				},
 			},
 		},
 	}
@@ -142,6 +164,11 @@ func (c *Controller) registerCheckers(ctx context.Context) error {
 					Name: "uptime",
 					Type: apiagent.CheckerV1ValueType_CheckerV1ValueTypeDuration,
 				},
+				{
+					Name:    "restart_required",
+					Type:    apiagent.CheckerV1ValueType_CheckerV1ValueTypeNumber,
+					MaxWarn: "1",
+				},
 			},
 		},
 	}
@@ -149,6 +176,40 @@ func (c *Controller) registerCheckers(ctx context.Context) error {
 	_, err = c.grpcClient.RegisterCheckerV1(ctx, req)
 	if err != nil {
 		return fmt.Errorf("error registering uptime-checker: %s", err)
+	}
+
+	req = &apiagent.RegisterCheckerV1Request{
+		Checker: &apiagent.CheckerV1{
+			Name:    "APT-Updates",
+			Type:    CheckerTypeAptUpdates,
+			Version: "",
+			Params: []*apiagent.CheckerV1Param{
+				{
+					Name:     "exec_apt_update",
+					Label:    "Execute APT-Update",
+					Type:     apiagent.CheckerV1ParamType_CheckerV1ParamTypeBoolean,
+					Required: true,
+				},
+			},
+			Values: []*apiagent.CheckerV1Value{
+				{
+					Name: "count_available",
+					Type: apiagent.CheckerV1ValueType_CheckerV1ValueTypeNumber,
+				},
+				{
+					Name:    "count_security",
+					Type:    apiagent.CheckerV1ValueType_CheckerV1ValueTypeNumber,
+					MaxWarn: "1",
+				},
+			},
+			// Run only once per day
+			DefaultSchedule: "0 4 1 * * *",
+		},
+	}
+
+	_, err = c.grpcClient.RegisterCheckerV1(ctx, req)
+	if err != nil {
+		return fmt.Errorf("error registering apt-updates-checker: %s", err)
 	}
 
 	req = &apiagent.RegisterCheckerV1Request{

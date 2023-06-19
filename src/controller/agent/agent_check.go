@@ -1,12 +1,15 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"math"
 	"net"
 	"net/http"
+	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -24,14 +27,15 @@ import (
 )
 
 const (
-	CheckerTypeOS      = "com.indece.agent.linux.v1.checker.os"
-	CheckerTypeMemory  = "com.indece.agent.linux.v1.checker.memory"
-	CheckerTypeCPU     = "com.indece.agent.linux.v1.checker.cpu"
-	CheckerTypeDisk    = "com.indece.agent.linux.v1.checker.disk"
-	CheckerTypeUptime  = "com.indece.agent.linux.v1.checker.uptime"
-	CheckerTypeProcess = "com.indece.agent.linux.v1.checker.process"
-	CheckerTypePing    = "com.indece.agent.linux.v1.checker.ping"
-	CheckerTypeHTTP    = "com.indece.agent.linux.v1.checker.http"
+	CheckerTypeOS         = "com.indece.agent.linux.v1.checker.os"
+	CheckerTypeMemory     = "com.indece.agent.linux.v1.checker.memory"
+	CheckerTypeCPU        = "com.indece.agent.linux.v1.checker.cpu"
+	CheckerTypeDisk       = "com.indece.agent.linux.v1.checker.disk"
+	CheckerTypeUptime     = "com.indece.agent.linux.v1.checker.uptime"
+	CheckerTypeAptUpdates = "com.indece.agent.linux.v1.checker.aptupdates"
+	CheckerTypeProcess    = "com.indece.agent.linux.v1.checker.process"
+	CheckerTypePing       = "com.indece.agent.linux.v1.checker.ping"
+	CheckerTypeHTTP       = "com.indece.agent.linux.v1.checker.http"
 )
 
 func (c *Controller) checkOS(ctx context.Context) (string, []*apiagent.CheckV1Value, error) {
@@ -133,6 +137,21 @@ func (c *Controller) checkCPU(ctx context.Context) (string, []*apiagent.CheckV1V
 		Value: fmt.Sprintf("%.2f", l.Load15),
 	})
 
+	values = append(values, &apiagent.CheckV1Value{
+		Name:  "load_1_percent",
+		Value: fmt.Sprintf("%.2f", (l.Load1/math.Max(float64(count), 1))*100.0),
+	})
+
+	values = append(values, &apiagent.CheckV1Value{
+		Name:  "load_5_percent",
+		Value: fmt.Sprintf("%.2f", (l.Load5/math.Max(float64(count), 1))*100.0),
+	})
+
+	values = append(values, &apiagent.CheckV1Value{
+		Name:  "load_15_percent",
+		Value: fmt.Sprintf("%.2f", (l.Load15/math.Max(float64(count), 1))*100.0),
+	})
+
 	message := fmt.Sprintf(
 		"Load(1) = %.2f, Load(5) = %.2f, Load(15) = %.2f for %d cores",
 		l.Load1,
@@ -199,6 +218,11 @@ func (c *Controller) checkDisk(ctx context.Context, params []*apiagent.CheckV1Pa
 		Value: fmt.Sprintf("%d", usage.Used),
 	})
 
+	values = append(values, &apiagent.CheckV1Value{
+		Name:  "used_percent",
+		Value: fmt.Sprintf("%.0f", usage.UsedPercent),
+	})
+
 	message := fmt.Sprintf(
 		"%.1f%% (%s of %s) used of filesystem %s mounted on %s (%s)",
 		usage.UsedPercent,
@@ -227,10 +251,122 @@ func (c *Controller) checkUptime(ctx context.Context, params []*apiagent.CheckV1
 		Value: uptimeDuration.String(),
 	})
 
+	restartRequired := false
+
+	_, err = os.Stat("/var/run/reboot-required")
+	if !os.IsNotExist(err) {
+		restartRequired = true
+	}
+
+	values = append(values, &apiagent.CheckV1Value{
+		Name:  "restart_required",
+		Value: fmt.Sprintf("%d", c.boolToInt(restartRequired)),
+	})
+
 	message := fmt.Sprintf(
 		"Host is up for %s",
 		utils.FormatDurationPretty(uptimeDuration),
 	)
+
+	if restartRequired {
+		message += " (system restart required)"
+	}
+
+	return message, values, nil
+}
+
+func (c *Controller) checkAPTUpdates(ctx context.Context, params []*apiagent.CheckV1Param) (string, []*apiagent.CheckV1Value, error) {
+	var err error
+
+	paramExecAptUpdate := true
+
+	for _, param := range params {
+		if param.Value == "" {
+			continue
+		}
+
+		switch param.Name {
+		case "exec_apt_update":
+			paramExecAptUpdate, err = strconv.ParseBool(param.Value)
+			if err != nil {
+				return "", nil, fmt.Errorf("error parsing parameter '%s': %s", param.Name, err)
+			}
+		default:
+			return "", nil, fmt.Errorf("unknown parameter '%s'", param.Name)
+		}
+	}
+
+	if paramExecAptUpdate {
+		cmdUpdate := exec.Command("/usr/bin/apt", "update")
+		out, err := cmdUpdate.Output()
+		if err != nil {
+			return "", nil, fmt.Errorf("error running apt update: %s (%s)", err, string(out))
+		}
+	}
+
+	cmdCheck := exec.Command("/usr/bin/apt", "list", "--upgradable")
+	stdoutCheck := bytes.Buffer{}
+	stderrCheck := bytes.Buffer{}
+
+	cmdCheck.Stdout = &stdoutCheck
+	cmdCheck.Stderr = &stderrCheck
+	err = cmdCheck.Run()
+	out := stdoutCheck.String() + stderrCheck.String()
+
+	if err != nil {
+		return "", nil, fmt.Errorf("error running apt-check: %s (%s)", err, out)
+	}
+
+	countAvailable := int64(0)
+	countSecurity := int64(0)
+
+	outRows := strings.Split(stdoutCheck.String(), "\n")
+	for _, row := range outRows {
+		if !strings.Contains(row, "[upgradable from:") {
+			continue
+		}
+
+		rowParts := strings.Split(row, " ")
+		if len(rowParts) < 3 {
+			continue
+		}
+
+		identifierParts := strings.Split(rowParts[0], "/")
+		if len(identifierParts) < 2 {
+			continue
+		}
+
+		repos := identifierParts[len(identifierParts)-1]
+		if strings.Contains(repos, "-security") {
+			countSecurity++
+		}
+
+		countAvailable++
+	}
+
+	values := []*apiagent.CheckV1Value{}
+
+	values = append(values, &apiagent.CheckV1Value{
+		Name:  "count_available",
+		Value: fmt.Sprintf("%d", countAvailable),
+	})
+
+	values = append(values, &apiagent.CheckV1Value{
+		Name:  "count_security",
+		Value: fmt.Sprintf("%d", countSecurity),
+	})
+
+	message := ""
+
+	if countAvailable == 0 {
+		message = "No updates available"
+	} else {
+		message = fmt.Sprintf(
+			"%d update(s) are available (including %d security updates)",
+			countAvailable,
+			countSecurity,
+		)
+	}
 
 	return message, values, nil
 }
@@ -526,6 +662,15 @@ func (c *Controller) check(ctx context.Context, checkClient apiagent.Agent_Check
 		}
 	case CheckerTypeUptime:
 		message, values, err := c.checkUptime(ctx, checkRequest.Params)
+		if err != nil {
+			checkResult.Error = err.Error()
+			checkResult.Message = err.Error()
+		} else {
+			checkResult.Message = message
+			checkResult.Values = values
+		}
+	case CheckerTypeAptUpdates:
+		message, values, err := c.checkAPTUpdates(ctx, checkRequest.Params)
 		if err != nil {
 			checkResult.Error = err.Error()
 			checkResult.Message = err.Error()

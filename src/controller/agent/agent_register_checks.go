@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/indece-official/monitor-agent-linux/src/generated/model/apiagent"
 	"github.com/shirou/gopsutil/disk"
@@ -103,6 +104,28 @@ func (c *Controller) registerChecks(ctx context.Context) error {
 	_, err = c.grpcClient.RegisterCheckV1(ctx, req)
 	if err != nil {
 		return fmt.Errorf("error registering uptime-check: %s", err)
+	}
+
+	_, err = os.Stat("/usr/bin/apt")
+	if !os.IsNotExist(err) {
+		req = &apiagent.RegisterCheckV1Request{
+			Check: &apiagent.CheckV1{
+				Name:        "APT-Updates",
+				Type:        CheckerTypeAptUpdates,
+				CheckerType: CheckerTypeAptUpdates,
+				Params: []*apiagent.CheckV1Param{
+					{
+						Name:  "exec_apt_update",
+						Value: "true",
+					},
+				},
+			},
+		}
+
+		_, err = c.grpcClient.RegisterCheckV1(ctx, req)
+		if err != nil {
+			return fmt.Errorf("error registering uptime-check: %s", err)
+		}
 	}
 
 	return nil
