@@ -1,0 +1,8 @@
+build/
+dist/
+src/generated/
+.vscode
+config/local.cfg
+config/local.conf
+assets/www/
+**/*.gen.go

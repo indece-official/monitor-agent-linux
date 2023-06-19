@@ -1,0 +1,110 @@
+syntax = "proto3";
+
+package apiagent;
+
+option go_package = "./apiagent";
+
+service Agent {
+    rpc PingV1(PingV1Request) returns (Empty) {}
+    rpc RegisterAgentV1(RegisterAgentV1Request) returns (Empty) {}
+    rpc RegisterCheckerV1(RegisterCheckerV1Request) returns (Empty) {}
+    rpc RegisterCheckV1(RegisterCheckV1Request) returns (Empty) {}
+    rpc CheckV1(stream CheckV1Result) returns (stream CheckV1Request) {}
+}
+
+message Empty {
+}
+
+message PingV1Request {
+}
+
+message CheckV1Param {
+    string name = 1;
+    string value = 2;
+}
+
+message CheckV1Request {
+    string actionUID = 1;
+    string checkUID = 2;
+    string checkerType = 3;
+    repeated CheckV1Param params = 4;
+}
+
+message CheckV1Value {
+    string name = 1;
+    string value = 2;
+}
+
+message CheckV1Result {
+    string actionUID = 1;
+    string checkUID = 2;
+    string message = 3;
+    repeated CheckV1Value values = 4;
+    string error = 5;
+}
+
+enum CheckerV1ParamType {
+    CheckerV1ParamTypeText = 0;
+    CheckerV1ParamTypePassword = 1;
+    CheckerV1ParamTypeNumber = 2;
+    CheckerV1ParamTypeSelect = 3;
+    CheckerV1ParamTypeDuration = 4;
+    CheckerV1ParamTypeBoolean = 5;
+}
+
+message CheckerV1Param {
+    string name = 1;
+    string label = 2;
+    string hint = 3;
+    bool required = 4;
+    CheckerV1ParamType type = 5;
+    repeated string options = 6;
+}
+
+enum CheckerV1ValueType {
+    CheckerV1ValueTypeNumber = 0;
+    CheckerV1ValueTypeText = 1;
+    CheckerV1ValueTypeDate = 2;
+    CheckerV1ValueTypeDateTime = 3;
+    CheckerV1ValueTypeDuration = 4;
+}
+
+message CheckerV1Value {
+    string name = 1;
+    CheckerV1ValueType type = 2;
+    string minWarn = 3;
+    string minCrit = 4;
+    string maxWarn = 5;
+    string maxCrit = 6;
+}
+
+message CheckerV1 {
+    string name = 1;
+    string type = 2;
+    string version = 3;
+    bool customChecks = 4;
+    string defaultSchedule = 5;
+    repeated CheckerV1Param params = 6;
+    repeated CheckerV1Value values = 7;
+}
+
+message CheckV1 {
+    string type = 1;
+    string name = 2;
+    string checkerType = 3;
+    string schedule = 4;
+    repeated CheckV1Param params = 5;
+}
+
+message RegisterAgentV1Request {
+    string type = 1;
+    string version = 2;
+}
+
+message RegisterCheckerV1Request {
+    CheckerV1 checker = 1;
+}
+
+message RegisterCheckV1Request {
+    CheckV1 check = 1;
+}
