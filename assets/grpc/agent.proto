@@ -86,6 +86,7 @@ message CheckerV1 {
     string defaultSchedule = 5;
     repeated CheckerV1Param params = 6;
     repeated CheckerV1Value values = 7;
+    string defaultTimeout = 8;
 }
 
 message CheckV1 {
@@ -94,6 +95,7 @@ message CheckV1 {
     string checkerType = 3;
     string schedule = 4;
     repeated CheckV1Param params = 5;
+    string timeout = 6;
 }
 
 message RegisterAgentV1Request {

@@ -34,6 +34,7 @@ type IController interface {
 type Controller struct {
 	log           *logger.Log
 	grpcConn      *grpc.ClientConn
+	checkers      map[string]IChecker
 	grpcClient    apiagent.AgentClient
 	stop          bool
 	error         error
@@ -46,7 +47,24 @@ func (c *Controller) Name() string {
 	return ControllerName
 }
 
+func (c *Controller) addChecker(checker IChecker) {
+	c.checkers[checker.GetType()] = checker
+}
+
 func (c *Controller) Start() error {
+	c.checkers = map[string]IChecker{}
+
+	c.addChecker(NewAptUpdatesChecker())
+	c.addChecker(NewDockerContainerChecker())
+	c.addChecker(NewCpuChecker())
+	c.addChecker(NewDiskChecker())
+	c.addChecker(NewHttpChecker())
+	c.addChecker(NewMemoryChecker())
+	c.addChecker(NewOSChecker())
+	c.addChecker(NewPingChecker())
+	c.addChecker(NewProcessChecker())
+	c.addChecker(NewUptimeChecker())
+
 	caCrtRaw, err := base64.StdEncoding.DecodeString(*serverCACrt)
 	if err != nil {
 		return fmt.Errorf("error base64-decoding ca crt: %s", err)

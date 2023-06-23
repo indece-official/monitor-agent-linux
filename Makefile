@@ -88,5 +88,7 @@ package_debian:
 	mkdir -p $(DIR_DIST_DEBIAN)/indece-monitor-agent-linux_$(BUILD_VERSION)-1_amd64/DEBIAN/
 	BUILD_VERSION=$(BUILD_VERSION) envsubst < ./deploy/deb/control.tpl > $(DIR_DIST_DEBIAN)/indece-monitor-agent-linux_$(BUILD_VERSION)-1_amd64/DEBIAN/control
 	cp ./deploy/deb/conffiles $(DIR_DIST_DEBIAN)/indece-monitor-agent-linux_$(BUILD_VERSION)-1_amd64/DEBIAN/
+	cp ./deploy/deb/postinst $(DIR_DIST_DEBIAN)/indece-monitor-agent-linux_$(BUILD_VERSION)-1_amd64/DEBIAN/
+	chmod 0755 $(DIR_DIST_DEBIAN)/indece-monitor-agent-linux_$(BUILD_VERSION)-1_amd64/DEBIAN/postinst
 	fakeroot dpkg --build $(DIR_DIST_DEBIAN)/indece-monitor-agent-linux_$(BUILD_VERSION)-1_amd64
 	lintian $(DIR_DIST_DEBIAN)/indece-monitor-agent-linux_$(BUILD_VERSION)-1_amd64.deb

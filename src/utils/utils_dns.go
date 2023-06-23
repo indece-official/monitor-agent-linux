@@ -1,4 +1,4 @@
-package agent
+package utils
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-func (C *Controller) resolveDNS(host string, dnsServer string) (string, error) {
+func ResolveDNS(host string, dnsServer string) (string, error) {
 	c := dns.Client{}
 	m := dns.Msg{}
 
