@@ -58,6 +58,7 @@ func (c *Controller) Start() error {
 	c.addChecker(NewDockerContainerChecker())
 	c.addChecker(NewCpuChecker())
 	c.addChecker(NewDiskChecker())
+	c.addChecker(NewFileChecker())
 	c.addChecker(NewHttpChecker())
 	c.addChecker(NewMemoryChecker())
 	c.addChecker(NewOSChecker())

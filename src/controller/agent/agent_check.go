@@ -4,11 +4,17 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync"
 
 	"github.com/indece-official/monitor-agent-linux/src/generated/model/apiagent"
 )
 
-func (c *Controller) check(ctx context.Context, checkClient apiagent.Agent_CheckV1Client, checkRequest *apiagent.CheckV1Request) error {
+func (c *Controller) check(
+	ctx context.Context,
+	checkClient apiagent.Agent_CheckV1Client,
+	mutexCheckClientSend *sync.Mutex,
+	checkRequest *apiagent.CheckV1Request,
+) error {
 	checkResult := &apiagent.CheckV1Result{}
 	checkResult.ActionUID = checkRequest.ActionUID
 	checkResult.CheckUID = checkRequest.CheckUID
@@ -29,6 +35,9 @@ func (c *Controller) check(ctx context.Context, checkClient apiagent.Agent_Check
 		}
 	}
 
+	mutexCheckClientSend.Lock()
+	defer mutexCheckClientSend.Unlock()
+
 	err := checkClient.Send(checkResult)
 	if err != nil {
 		return fmt.Errorf("error sending result: %s", err)
@@ -46,6 +55,7 @@ func (c *Controller) checkLoop(ctx context.Context) error {
 		return fmt.Errorf("error receiving config: %s", err)
 	}
 	defer checkClient.CloseSend()
+	mutexCheckClientSend := &sync.Mutex{}
 
 	for !c.stop {
 		checkRequest, err := checkClient.Recv()
@@ -57,14 +67,17 @@ func (c *Controller) checkLoop(ctx context.Context) error {
 			return err
 		}
 
-		err = c.check(
-			ctx,
-			checkClient,
-			checkRequest,
-		)
-		if err != nil {
-			return fmt.Errorf("error running check: %s", err)
-		}
+		go func() {
+			err := c.check(
+				ctx,
+				checkClient,
+				mutexCheckClientSend,
+				checkRequest,
+			)
+			if err != nil {
+				c.log.Errorf("error running check: %s", err)
+			}
+		}()
 	}
 
 	return nil
