@@ -20,7 +20,7 @@ LDFLAGS := $(LDFLAGS) -X github.com/indece-official/monitor-agent-linux/src/buil
 LDFLAGS := $(LDFLAGS) -X github.com/indece-official/monitor-agent-linux/src/buildvars.BuildDate=$(BUILD_DATE)
 LDFLAGS := $(LDFLAGS) -X github.com/indece-official/monitor-agent-linux/src/buildvars.BuildVersion=$(BUILD_VERSION)
 
-all: generate test build_amd64 build_arm
+all: generate test build_amd64 build_amd64_full build_arm
 
 generate:
 	mkdir -p $(DIR_GENERATED_MODEL)
@@ -30,6 +30,10 @@ generate:
 build_amd64:
 	mkdir -p $(DIR_DIST)/bin
 	GO111MODULE=on GOOS=linux GOARCH=amd64 $(GOBUILD) -ldflags "$(LDFLAGS)" -buildmode pie -o $(BINARY_NAME)_amd64 -tags=prod -v $(DIR_SOURCE)/main.go
+
+build_amd64_full:
+	mkdir -p $(DIR_DIST)/bin
+	CGO_ENABLED=0 GO111MODULE=on GOOS=linux GOARCH=amd64 $(GOBUILD) -ldflags "$(LDFLAGS)" -buildmode pie -o $(BINARY_NAME)_amd64_full -tags=prod -v $(DIR_SOURCE)/main.go
 
 build_arm:
 	mkdir -p $(DIR_DIST)/bin
